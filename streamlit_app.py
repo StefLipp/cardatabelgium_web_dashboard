@@ -1,151 +1,119 @@
 import streamlit as st
 import pandas as pd
-import math
 from pathlib import Path
 
-# Set the title and favicon that appear in the Browser's tab bar.
+# Set the title and favicon that appear in the browser's tab bar.
 st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
+    page_title='Car Ownership & City Data Dashboard',
+    page_icon=':oncoming_automobile:',  # This is an emoji shortcode. Could be a URL too.
 )
 
 # -----------------------------------------------------------------------------
-# Declare some useful functions.
+# Declare useful functions
 
 @st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+def load_data():
+    """Load car and city data from CSV files and perform a left join."""
+    # Load the data
+    cardata_path = Path(__file__).parent / 'data/fct_cardata.csv'
+    citydata_path = Path(__file__).parent / 'data/dim_city.csv'
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+    cardata_df = pd.read_csv(cardata_path)
+    citydata_df = pd.read_csv(citydata_path)
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/fct_cardata.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+    # Perform a LEFT JOIN on city_id
+    merged_df = pd.merge(cardata_df, citydata_df, on='city_id', how='left')
 
-    MIN_YEAR = 1969
-    MAX_YEAR = 2022
+    return merged_df
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
+# Load the merged data
+data_df = load_data()
 
 # -----------------------------------------------------------------------------
 # Draw the actual page
 
 # Set the title that appears at the top of the page.
 '''
-# :earth_americas: GDP dashboard
+# :oncoming_automobile: Car Ownership & City Data Dashboard
 
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
+Explore data related to households, car ownership, population, and prosperity across different cities in Belgium.
 '''
 
 # Add some spacing
 ''
 ''
 
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
+# Filterable inputs for selecting cities, provinces, and cardata_year range
+provinces = data_df['province_or_region'].unique()
 
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
+selected_provinces = st.multiselect(
+    'Which provinces or regions would you like to view?',
+    provinces,
+    default=provinces
+)
 
-countries = gdp_df['Country Code'].unique()
+min_year = int(data_df['cardata_year'].min())
+max_year = int(data_df['cardata_year'].max())
 
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
+# Slider to select the range of cardata_year
+year_range = st.slider(
+    'Select the year range for car data:',
+    min_value=min_year,
+    max_value=max_year,
+    value=[min_year, max_year]
 )
 
 ''
 ''
 
+# Filter the data based on user selection
+filtered_data_df = data_df[
+    (data_df['province_or_region'].isin(selected_provinces))
+    & (data_df['cardata_year'] >= year_range[0])
+    & (data_df['cardata_year'] <= year_range[1])
+]
 
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
+# Display filtered data
+st.header('City and Household Data Overview', divider='gray')
 
-st.header(f'GDP in {to_year}', divider='gray')
+st.dataframe(filtered_data_df)
 
 ''
+''
 
-cols = st.columns(4)
+# Show a chart comparing car ownership percentages with population density (pop_per_km2)
+st.header('Car Ownership Percentage vs. Population Density')
 
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
+st.scatter_chart(
+    filtered_data_df,
+    x='pop_per_km2',
+    y='household_hascar_perc_of_total'
+)
 
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
+''
+''
 
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
+# Extra section: Prosperity Index vs. Car Ownership
+st.header('Prosperity Index vs. Car Ownership')
 
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+st.scatter_chart(
+    filtered_data_df,
+    x='prosperity_index',
+    y='household_hascar_perc_of_total'
+)
+
+''
+''
+
+# New section: Car Ownership vs Household Type
+st.header('Car Ownership Percentage by Household Type')
+
+# Group the data by household type and calculate the mean car ownership percentage for each type
+household_type_avg = filtered_data_df.groupby('household_type_en')['household_hascar_perc_of_total'].mean().reset_index()
+
+# Plot the bar chart
+st.bar_chart(
+    household_type_avg,
+    x='household_type_en',
+    y='household_hascar_perc_of_total'
+)
