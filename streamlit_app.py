@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
+import altair as alt
 
 # Set the title and favicon that appear in the browser's tab bar.
 st.set_page_config(
@@ -84,11 +85,18 @@ st.dataframe(filtered_data_df)
 # Show a chart comparing car ownership percentages with population density (pop_per_km2)
 st.header('Car Ownership Percentage vs. Population Density')
 
-st.scatter_chart(
-    filtered_data_df,
+# Create a scatter plot using Altair
+scatter1 = alt.Chart(filtered_data_df).mark_circle(size=60).encode(
     x='pop_per_km2',
-    y='household_hascar_perc_of_total'
-)
+    y='household_hascar_perc_of_total',
+    color='province_or_region',
+    tooltip=['city_name_nl', 'pop_per_km2', 'household_hascar_perc_of_total', 'province_or_region']
+).properties(
+    title="Car Ownership vs Population Density"
+).interactive()
+
+# Display the scatter plot
+st.altair_chart(scatter1, use_container_width=True)
 
 ''
 ''
@@ -96,11 +104,18 @@ st.scatter_chart(
 # Extra section: Prosperity Index vs. Car Ownership
 st.header('Prosperity Index vs. Car Ownership')
 
-st.scatter_chart(
-    filtered_data_df,
+# Create another scatter plot for Prosperity Index vs Car Ownership
+scatter2 = alt.Chart(filtered_data_df).mark_circle(size=60).encode(
     x='prosperity_index',
-    y='household_hascar_perc_of_total'
-)
+    y='household_hascar_perc_of_total',
+    color='province_or_region',
+    tooltip=['city_name_nl', 'prosperity_index', 'household_hascar_perc_of_total', 'province_or_region']
+).properties(
+    title="Prosperity Index vs Car Ownership"
+).interactive()
+
+# Display the second scatter plot
+st.altair_chart(scatter2, use_container_width=True)
 
 ''
 ''
@@ -111,7 +126,7 @@ st.header('Car Ownership Percentage by Household Type')
 # Group the data by household type and calculate the mean car ownership percentage for each type
 household_type_avg = filtered_data_df.groupby('household_type_en')['household_hascar_perc_of_total'].mean().reset_index()
 
-# Plot the bar chart
+# Plot the bar chart using Streamlit's built-in bar chart
 st.bar_chart(
     household_type_avg,
     x='household_type_en',
