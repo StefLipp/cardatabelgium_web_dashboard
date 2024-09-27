@@ -3,6 +3,15 @@ import pandas as pd
 from pathlib import Path
 import altair as alt
 
+# Add custom CSS to hide the GitHub icon
+hide_github_icon = """
+#GithubIcon {
+  visibility: hidden;
+}
+"""
+st.markdown(hide_github_icon, unsafe_allow_html=True)
+
+
 # Set the title and favicon that appear in the browser's tab bar.
 st.set_page_config(
     page_title='Car Ownership & City Data Dashboard',
