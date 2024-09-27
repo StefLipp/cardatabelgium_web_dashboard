@@ -76,11 +76,6 @@ filtered_data_df = data_df[
     & (data_df['cardata_year'] <= year_range[1])
 ]
 
-# Display filtered data
-st.header('City and Household Data Overview', divider='gray')
-
-st.dataframe(filtered_data_df)
-
 ''
 ''
 
